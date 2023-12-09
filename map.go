@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"go.creack.net/wolf3d/math3"
+	"go.creack.net/wolf3d/math2"
 )
 
 //nolint:gochecknoglobals // Expected "readonly" global.
@@ -42,12 +42,9 @@ func parseMap(mapData []byte) ([][]MapPoint, error) {
 			}
 
 			p := MapPoint{
-				Vec: math3.Vec{
-					X: float64(x),
-					Y: float64(y),
-					Z: float64(h * 4),
-				},
-				color: defaultColor,
+				Point:  math2.Pt(x, y),
+				isWall: h != 0,
+				color:  defaultColor,
 			}
 
 			points = append(points, p)
@@ -65,6 +62,7 @@ func parseMap(mapData []byte) ([][]MapPoint, error) {
 // MapPoint represents an individual point for the wireframe.
 // 3d vector with color.
 type MapPoint struct {
-	math3.Vec
-	color color.Color
+	math2.Point
+	isWall bool
+	color  color.Color
 }

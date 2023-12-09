@@ -21,8 +21,8 @@ import (
 const (
 	blockSize = 20
 
-	screenWidth  = 800
-	screenHeight = 600
+	screenWidth  = 1920
+	screenHeight = 1080
 	padding      = 20
 )
 
@@ -74,10 +74,10 @@ func (g *Game) Update() error {
 	}
 
 	if inpututil.IsKeyJustPressed(ebiten.KeyA) {
-		g.pangle += 4
+		g.pangle += 10
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyD) {
-		g.pangle -= 4
+		g.pangle -= 10
 	}
 
 	return nil
@@ -93,6 +93,21 @@ func GetScale(screenWidth, screenHeight int, bounds image.Rectangle) int {
 
 // FOV angle in degrees.
 const FOV = 60
+
+func isBetween(angle, start, end math2.Angle) bool {
+	// Normalize angles.
+	angle = angle.Normalize()
+	start = start.Normalize()
+	end = end.Normalize()
+
+	// Check if angle is between start and end.
+	if start <= end {
+		return angle >= start && angle <= end
+	}
+
+	// Handle the case where the range spans 0 degrees.
+	return angle >= start || angle <= end
+}
 
 // Draw implements the ebiten interface.
 func (g *Game) Draw(screen *ebiten.Image) {
@@ -115,7 +130,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 
 	playerPixelCoords := centerPixelCoords(g.px, g.py)
-
 	cast := func(x, y int) {
 		cur := centerPixelCoords(x, y)
 
@@ -125,16 +139,17 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			cur,
 		)
 
-		a1 := math2.NewDegAngle(g.pangle + FOV/2)
-		a2 := math2.NewDegAngle(g.pangle - FOV/2)
+		a1 := math2.NewDegAngle(float64(g.pangle) + FOV/2.)
+		a2 := math2.NewDegAngle(float64(g.pangle) - FOV/2.)
 
 		c := color.RGBA{A: 0xff, B: 0xff, G: 0xff}
-		if a0 > a2 && a0 < a1 {
+
+		if isBetween(a0, a2, a1) {
 			c.B = 0
 		}
 
 		vector.StrokeLine(img, float32(playerPixelCoords.X), float32(playerPixelCoords.Y), float32(cur.X), float32(cur.Y), 1, c, false)
-		ebitenutil.DebugPrintAt(img, fmt.Sprintf("%.2f", a0.Degrees()), int(cur.X), int(cur.Y))
+		ebitenutil.DebugPrintAt(img, fmt.Sprintf("%.2f\n%.2f\n%.2f", a0.Degrees(), a1.Degrees(), a2.Degrees()), int(cur.X), int(cur.Y))
 	}
 
 	// Go over each point in the world.
@@ -149,9 +164,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			cast(x, y)
 
 			// Draw a square from the scaled x/y of size scale.
-			p := math2.Scale(math2.Pt(x, y), scale).Add(screenOffset)
-			vector.DrawFilledRect(img, float32(p.X), float32(p.Y), float32(scale), float32(scale), wallColor, false)
-			vector.StrokeRect(img, float32(p.X), float32(p.Y), float32(scale), float32(scale), 1, wallBorderColor, false)
+			origin := math2.Scale(math2.Pt(x, y), scale).Add(screenOffset)
+			// vector.DrawFilledRect(img, float32(p.X), float32(p.Y), float32(scale), float32(scale), wallColor, false)
+			vector.StrokeRect(img, float32(origin.X), float32(origin.Y), float32(scale), float32(scale), 1, wallBorderColor, false)
 		}
 	}
 
@@ -160,23 +175,21 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	// Outer inner.
 	vector.StrokeRect(img,
-		float32(screenOffset.X), float32(screenOffset.Y), float32(len(g.world[0])*scale), float32(len(g.world)*scale),
+		float32(screenOffset.X), float32(screenOffset.Y),
+		float32(len(g.world[0])*scale), float32(len(g.world)*scale),
 		1, color.RGBA{A: 40, R: 0xf0, G: 0xf0, B: 0xf0}, false)
 
-	// Draw player as a rect
-	pp := math2.Scale(math2.Pt(g.px, g.py), scale).Add(screenOffset).Add(math2.Pt(scale/2, scale/2)).Sub(math2.Pt(2, 2))
-
-	vector.StrokeRect(img, float32(pp.X), float32(pp.Y), 5, 5, 1, color.RGBA{255, 100, 100, 255}, false)
+	// Draw player as a rect.
+	playerRectOrigin := playerPixelCoords.Sub(math2.Pt(2, 2))
+	vector.StrokeRect(img, float32(playerRectOrigin.X), float32(playerRectOrigin.Y), 5, 5, 1, color.RGBA{255, 100, 100, 255}, false)
 
 	// Draw the FOV lines.
-	{
-		origin := playerPixelCoords
-		p2 := math2.CoordinatesFromAngleDist(origin, origin, math2.NewDegAngle(g.pangle+FOV/2), 1000)
-		vector.StrokeLine(img, float32(origin.X), float32(origin.Y), float32(p2.X), float32(p2.Y), 1, color.RGBA{A: 0xff, R: 0xff, G: 0x0}, false)
-		p2 = math2.CoordinatesFromAngleDist(origin, origin, math2.NewDegAngle(g.pangle-FOV/2), 1000)
-		vector.StrokeLine(img, float32(origin.X), float32(origin.Y), float32(p2.X), float32(p2.Y), 1, color.RGBA{A: 0xff, B: 0xff, G: 0x0}, false)
-	}
+	fovLine1 := math2.CoordinatesFromAngleDist(playerPixelCoords, playerPixelCoords, math2.NewDegAngle(g.pangle+FOV/2), 1000)
+	vector.StrokeLine(img, float32(playerPixelCoords.X), float32(playerPixelCoords.Y), float32(fovLine1.X), float32(fovLine1.Y), 1, color.RGBA{A: 0xff, R: 0xff, G: 0x0}, false)
+	fovLine2 := math2.CoordinatesFromAngleDist(playerPixelCoords, playerPixelCoords, math2.NewDegAngle(g.pangle-FOV/2), 1000)
+	vector.StrokeLine(img, float32(playerPixelCoords.X), float32(playerPixelCoords.Y), float32(fovLine2.X), float32(fovLine2.Y), 1, color.RGBA{A: 0xff, B: 0xff, G: 0x0}, false)
 
+	// Draw the image to the screen.
 	op := &ebiten.DrawImageOptions{
 		Blend: ebiten.BlendCopy,
 	}
@@ -205,7 +218,11 @@ func main() {
 	for _, row := range m {
 		line := make([]int, 0, len(row))
 		for _, elem := range row {
-			line = append(line, int(elem.Z))
+			if elem.isWall {
+				line = append(line, 1)
+			} else {
+				line = append(line, 0)
+			}
 		}
 		g.world = append(g.world, line)
 	}

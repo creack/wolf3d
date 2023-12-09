@@ -1,6 +1,9 @@
 package math2
 
-import "math"
+import (
+	"fmt"
+	"math"
+)
 
 // Angle helper type.
 type Angle float64
@@ -15,6 +18,9 @@ func NewDegAngle[T ~int | ~float32 | ~float64](degrees T) Angle {
 	return NewRadAngle(float64(degrees) * math.Pi / 180)
 }
 
+// String in degrees.
+func (a Angle) String() string { return fmt.Sprint(math.Round(a.Degrees()*100) / 100) }
+
 // Radians returns the radians value of the angle.
 func (a Angle) Radians() float64 { return float64(a) }
 
@@ -28,10 +34,10 @@ func (a Angle) Normalize() Angle {
 	a = Angle(math.Mod(a.Radians(), 2*math.Pi))
 
 	if a > math.Pi {
-		return -(2*math.Pi - a)
+		return a - 2*math.Pi
 	}
 	if a < -math.Pi {
-		return -(-2*math.Pi - a)
+		return a + 2*math.Pi
 	}
 	return a
 }

@@ -84,12 +84,7 @@ func TestGetAngle(t *testing.T) {
 	}
 }
 
-// // func TestFoo44(t *testing.T) {
-// // 	a := NewDegAngle(323.12)
-// // 	fmt.Printf(">>>> %v -- %v\n", round(a.Degrees()), round(a.Normalize().Degrees()))
-// // }
-
-func TestFoo5(t *testing.T) {
+func TestCoordsFromAngleLen(t *testing.T) {
 	t.Parallel()
 
 	for i, tr := range []struct {
