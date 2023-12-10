@@ -1,389 +1,302 @@
 package main
 
 import (
-	"bytes"
-	_ "embed"
-	"fmt"
 	"image"
 	"image/color"
-	"image/draw"
-	"image/png"
-	"log"
 	"math"
-	"runtime"
-	"strings"
 	"time"
-
-	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
-//go:embed textures.png
-var textureData []byte
-
-//go:embed map4
-var mapData []byte
-
-type Point struct{ X, Y float64 }
-
-func Pt(x, y float64) Point { return Point{x, y} }
-
-const texSize = 64
-
-func loadWorld() [][]int {
-	//nolint:prealloc // False positive.
-	var w [][]int
-	for _, line := range strings.Split(string(mapData), "\n") {
-		if line == "" {
-			continue
-		}
-		var worldLine []int
-		for _, elem := range strings.ReplaceAll(line, " ", "") {
-			worldLine = append(worldLine, int(elem-'0'))
-		}
-		w = append(w, worldLine)
-	}
-	w2 := make([][]int, len(w[0]))
-	for i := range w2 {
-		w2[i] = make([]int, len(w))
-	}
-	for y, line := range w {
-		for x, elem := range line {
-			w2[x][y] = elem
-		}
-	}
-	return w2
-}
-
-func loadTextures() *image.RGBA {
-	p, err := png.Decode(bytes.NewReader(textureData))
-	if err != nil {
-		panic(err)
-	}
-
-	m := image.NewRGBA(p.Bounds())
-
-	draw.Draw(m, m.Bounds(), p, image.Point{}, draw.Src)
-
-	return m
-}
-
-func (g *Game) getTexNum(x, y int) int {
-	return g.world[x][y]
-}
-
-func (g *Game) frame() *image.RGBA {
-	img := image.NewRGBA(image.Rect(0, 0, g.width, g.height))
-
-	for x := 0; x < g.width; x++ {
-		var (
-			step         image.Point
-			sideDist     Point
-			perpWallDist float64
-			hit, side    bool
-
-			rayPos, worldX, worldY = g.pos, int(g.pos.X), int(g.pos.Y)
-
-			cameraX = 2*float64(x)/float64(g.width) - 1
-
-			rayDir = Pt(
-				g.dir.X+g.plane.X*cameraX,
-				g.dir.Y+g.plane.Y*cameraX,
-			)
-
-			deltaDist = Pt(
-				math.Sqrt(1.0+(rayDir.Y*rayDir.Y)/(rayDir.X*rayDir.X)),
-				math.Sqrt(1.0+(rayDir.X*rayDir.X)/(rayDir.Y*rayDir.Y)),
-			)
-		)
-
-		if rayDir.X < 0 {
-			step.X = -1
-			sideDist.X = (rayPos.X - float64(worldX)) * deltaDist.X
-		} else {
-			step.X = 1
-			sideDist.X = (float64(worldX) + 1.0 - rayPos.X) * deltaDist.X
-		}
-
-		if rayDir.Y < 0 {
-			step.Y = -1
-			sideDist.Y = (rayPos.Y - float64(worldY)) * deltaDist.Y
-		} else {
-			step.Y = 1
-			sideDist.Y = (float64(worldY) + 1.0 - rayPos.Y) * deltaDist.Y
-		}
-
-		for !hit {
-			if sideDist.X < sideDist.Y {
-				sideDist.X += deltaDist.X
-				worldX += step.X
-				side = false
-			} else {
-				sideDist.Y += deltaDist.Y
-				worldY += step.Y
-				side = true
-			}
-
-			if g.world[worldX][worldY] > 0 {
-				hit = true
-			}
-		}
-
-		var wallX float64
-
-		if side {
-			perpWallDist = (float64(worldY) - rayPos.Y + (1-float64(step.Y))/2) / rayDir.Y
-			wallX = rayPos.X + perpWallDist*rayDir.X
-		} else {
-			perpWallDist = (float64(worldX) - rayPos.X + (1-float64(step.X))/2) / rayDir.X
-			wallX = rayPos.Y + perpWallDist*rayDir.Y
-		}
-
-		if x == g.width/2 {
-			g.wallDistance = perpWallDist
-		}
-
-		wallX -= math.Floor(wallX)
-
-		// texX := int(wallX * float64(texSize))
-
-		lineHeight := int(float64(g.height) / perpWallDist)
-
-		if lineHeight < 1 {
-			lineHeight = 1
-		}
-
-		drawStart := -lineHeight/2 + g.height/2
-		if drawStart < 0 {
-			drawStart = 0
-		}
-
-		drawEnd := lineHeight/2 + g.height/2
-		if drawEnd >= g.height {
-			drawEnd = g.height - 1
-		}
-
-		// if !side && rayDir.X > 0 {
-		// 	texX = texSize - texX - 1
-		// }
-
-		// if side && rayDir.Y < 0 {
-		// 	texX = texSize - texX - 1
-		// }
-
-		texNum := g.getTexNum(worldX, worldY)
-
-		for y := drawStart; y < drawEnd+1; y++ {
-			// d := y*256 - g.height*128 + lineHeight*128
-			// texY := ((d * texSize) / lineHeight) / 256
-
-			// c := g.textures.RGBAAt(
-			// 	texX+texSize*(texNum),
-			// 	texY%texSize,
-			// )
-
-			c := color.RGBA{A: 255, R: 255}
-			if texNum == 0 {
-				c = color.RGBA{A: 255, B: 255}
-			}
-			// if side {
-			// 	c.R /= 2
-			// 	c.G /= 2
-			// 	c.B /= 2
-			// }
-
-			img.Set(x, y, c)
-		}
-
-		continue
-		var floorWall Point
-
-		if !side && rayDir.X > 0 {
-			floorWall.X = float64(worldX)
-			floorWall.Y = float64(worldY) + wallX
-		} else if !side && rayDir.X < 0 {
-			floorWall.X = float64(worldX) + 1.0
-			floorWall.Y = float64(worldY) + wallX
-		} else if side && rayDir.Y > 0 {
-			floorWall.X = float64(worldX) + wallX
-			floorWall.Y = float64(worldY)
-		} else {
-			floorWall.X = float64(worldX) + wallX
-			floorWall.Y = float64(worldY) + 1.0
-		}
-
-		continue
-		distWall, distPlayer := perpWallDist, 0.0
-
-		for y := drawEnd + 1; y < g.height; y++ {
-			currentDist := float64(g.height) / (2.0*float64(y) - float64(g.height))
-
-			weight := (currentDist - distPlayer) / (distWall - distPlayer)
-
-			currentFloor := Pt(
-				weight*floorWall.X+(1.0-weight)*g.pos.X,
-				weight*floorWall.Y+(1.0-weight)*g.pos.Y,
-			)
-
-			fx := int(currentFloor.X*float64(texSize)) % texSize
-			fy := int(currentFloor.Y*float64(texSize)) % texSize
-
-			img.Set(x, y, g.textures.At(fx, fy))
-
-			img.Set(x, g.height-y-1, g.textures.At(fx+(4*texSize), fy))
-			img.Set(x, g.height-y, g.textures.At(fx+(4*texSize), fy))
-		}
-	}
-
-	return img
-}
-
+// Game holds the state.
 type Game struct {
 	world    [][]int
 	textures *image.RGBA
 
 	width, height int
 
-	dir          Point
-	plane        Point
-	pos          Point
-	wallDistance float64
+	// NOTE: FOV is the ration of dir/plane vectors.
+	dir   Point // Direction vector.
+	plane Point // Camera plane vector.
+
+	pos Point // Current player position.
+
+	last time.Time // Time when last frame was rendered. Used to scale movements.
 }
 
-func (g Game) Layout(_, _ int) (w, h int) { return g.width, g.height }
-
-func (g *Game) Draw(screen *ebiten.Image) {
-	screen.Fill(color.Black)
-	img := ebiten.NewImageFromImage(g.frame())
-
-	op := &ebiten.DrawImageOptions{}
-	screen.DrawImage(img, op)
+func (g *Game) getTexNum(x, y int) int {
+	return g.world[x][y]
 }
 
-var last = time.Now()
-
-func (g *Game) Update() error {
-	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) || inpututil.IsKeyJustPressed(ebiten.KeyQ) {
-		return fmt.Errorf("exit")
+func (g *Game) getColor(x, y int) color.Color {
+	switch g.getTexNum(x, y) {
+	case 1:
+		return color.RGBA{R: 255}
+	case 2:
+		return color.RGBA{G: 255}
+	case 3:
+		return color.RGBA{B: 255}
+	case 4:
+		return color.White
+	case 5:
+		return color.RGBA{R: 0, G: 255, B: 255}
+	case 6:
+		return color.RGBA{R: 255, G: 0, B: 255}
+	case 7:
+		return color.RGBA{R: 255, G: 255, B: 0}
+	default:
+		return color.Black
 	}
-
-	dt := time.Since(last).Seconds()
-	last = time.Now()
-
-	if ebiten.IsKeyPressed(ebiten.KeyUp) || ebiten.IsKeyPressed(ebiten.KeyW) {
-		g.moveForward(3.5 * dt)
-	}
-
-	if ebiten.IsKeyPressed(ebiten.KeyA) {
-		g.moveLeft(3.5 * dt)
-	}
-
-	if ebiten.IsKeyPressed(ebiten.KeyDown) || ebiten.IsKeyPressed(ebiten.KeyS) {
-		g.moveBackwards(3.5 * dt)
-	}
-
-	if ebiten.IsKeyPressed(ebiten.KeyD) {
-		g.moveRight(3.5 * dt)
-	}
-
-	if ebiten.IsKeyPressed(ebiten.KeyRight) {
-		g.turnRight(1.2 * dt)
-	}
-
-	if ebiten.IsKeyPressed(ebiten.KeyLeft) {
-		g.turnLeft(1.2 * dt)
-	}
-
-	return nil
 }
 
-func (g *Game) moveForward(s float64) {
-	if g.wallDistance > 0.3 {
-		if g.world[int(g.pos.X+g.dir.X*s)][int(g.pos.Y)] == 0 {
-			g.pos.X += g.dir.X * s
+func dimColor(in color.Color) color.Color {
+	r, g, b, a := in.RGBA()
+	return color.RGBA64{
+		A: uint16(a),
+		R: uint16(r / 2),
+		G: uint16(g / 2),
+		B: uint16(b / 2),
+	}
+}
+
+// getDeltaDist returns the distance the ray has to travel to go
+// from one x-side or ine y-side to the next.
+//
+// For delaDist.X:
+//   - the x side is `1` because we go from one case to the next.
+//   - the y side is `rayDir.Y / rayDir.X` because it is exactly
+//     the amount of units the ray goes in the Y-direction when
+//     taking 1 step in the X-direction, i.e. it is the slope of the ray.
+//     Slope formula: (y2-y1)/(x2-x1).
+//     We set the first point to be the origin (0,0), so we have:
+//     slope = (rayDir.Y-0)/(rayDir.X-0) = rayDir.Y/rayDir.X
+//
+// For deltaDist.Y, same idea but the slope is X/Y.
+//
+// Formula:
+//
+//	xSide1, ySide1 = 1, slope
+//	xSide2, ySide2 = slope, 1
+//	deltaDist.X = math.Hypot(xSide1, ySide1) = math.Hypot(1, slopeX) = sqrt(1*1 + ((rayDir.Y * rayDir.Y) / (rayDirX * rayDir.X)))
+//	deltaDist.Y = math.Hypot(xSide2, ySide2) = math.Hypot(slopeY, 1) = sqrt(1*1 + ((rayDir.X * rayDir.X) / (rayDirY * rayDir.Y)))
+//
+// Simplified formula:
+//
+//	|rayDir| = math.Hypot(rayDir.X, rayDir.Y) = sqrt(rayDir.X * rayDir.X + rayDir.Y * rayDir.Y)
+//	deltaDist.X = abs(|rayDir| / rayDir.X)
+//	deltaDist.Y = abs(|rayDir| / rayDir.Y)
+//
+// And for our purpose, we only consider the ratio, not the actual size.
+//
+//	deltaDist.X = abs(1 / rayDir.X)
+//	deltaDist.Y = abs(1 / rayDir.Y)
+//
+// NOTE: If rayDir.X or rayDir.Y are 0, the division through zero is avoided
+// by setting it to a very high value math.Inf.
+//
+// For reference, the actual formula code:
+//
+//	func getDeltaDist(rayDir Point) Point {
+//		slopeX, slopeY := rayDir.X/rayDir.Y, rayDir.Y/rayDir.X
+//		return Point{math.Hypot(1, slopeY), math.Hypot(slopeX, 1)}
+//	}
+//
+// and the general simplified version:
+//
+//	func getDeltaDist(rayDir Point) Point {
+//		rayDirLen := math.Hypot(rayDir.X, rayDir.Y)
+//		out := Point{math.Inf(1), math.Inf(1)} // Default values in case the denominator is 0.
+//		if rayDir.X != 0 {
+//			out.X = math.Abs(rayDirLen / rayDir.X)
+//		}
+//		if rayDir.Y != 0 {
+//			out.Y = math.Abs(rayDirLen / rayDir.Y)
+//		}
+//		return out
+//	}
+func getDeltaDist(rayDir Point) Point {
+	// For our purpose we don't need the length, just the ratio.
+	// Use the simplified version with a length of 1.
+	const rayDirLen = 1.
+	out := Point{math.Inf(1), math.Inf(1)} // Default values in case the denominator is 0.
+	if rayDir.X != 0 {
+		out.X = math.Abs(rayDirLen / rayDir.X)
+	}
+	if rayDir.Y != 0 {
+		out.Y = math.Abs(rayDirLen / rayDir.Y)
+	}
+	return out
+}
+
+// getInitialSideDist returns the length of ray from current
+// position to next x or y-side.
+//
+// sideDist.X and sideDist.Y are initially the distance the ray has to travel
+// from its start position to the first x-side and the first y-side.
+//
+// Later in the code they will be incremented while steps are taken.
+//
+// Note that we always have:
+//   - worldPt.X <= g.pos.X <= worldPt.X+1
+//   - worldPt.Y <= g.pos.Y <= worldPt.Y+1
+func getInitialSideDist(rayDir, deltaDist, pos Point, worldPt image.Point) Point {
+	var sideDist Point
+
+	if rayDir.X < 0 {
+		// Relative X position within the world case from the left.
+		sideDist.X = pos.X - float64(worldPt.X)
+	} else {
+		// Relative X position within the world case from the right.
+		sideDist.X = float64(worldPt.X+1) - pos.X
+	}
+	if rayDir.Y < 0 {
+		// Relative Y position within the world case from the top.
+		sideDist.Y = pos.Y - float64(worldPt.Y)
+	} else {
+		// Relative Y position within the world case from the bottom.
+		sideDist.Y = float64(worldPt.Y+1) - pos.Y
+	}
+
+	// Multiply the relative position by deltaDist to get the side dist.
+	return sideDist.Mul(deltaDist)
+}
+
+// getStep returns a vector with either +1 or -1
+// to describe the direction each step should take.
+func getStep(rayDir Point) Point {
+	// What direction to step in x or y-direction (either +1 or -1).
+	step := Point{1, 1}
+	if rayDir.X < 0 {
+		step.X = -1
+	}
+	if rayDir.Y < 0 {
+		step.Y = -1
+	}
+	return step
+}
+
+// getWallDist returns the distance between the wall and the camera plane.
+//
+// We don't use the Euclidean distance to the point
+// representing player, but instead the distance to
+// the camera plane (or, the distance of the point projected
+// on the camera direction to the player),
+// to avoid the fisheye effect.
+//
+// The fisheye effect is an effect you see if you use the real distance,
+// where all the walls become rounded, and can make you sick if you rotate.
+func getWallDist(rayDir, step, pos Point, worldPt image.Point, side bool) float64 {
+	if side {
+		return (float64(worldPt.Y) - pos.Y + (1-step.Y)/2) / rayDir.Y
+	}
+	return (float64(worldPt.X) - pos.X + (1-step.X)/2) / rayDir.X
+}
+
+// Implements the DDA algoright (Digital Differential Analysis).
+func (g *Game) frame() image.Image {
+	img := image.NewRGBA(image.Rect(0, 0, g.width, g.height))
+
+	// Go over each point along the X axis and cast a ray between the play and that point.
+	for x := 0; x < g.width; x++ {
+		// cameraX is the x-coordinate on the camera plane that
+		// the current x-coordinate of the screen represents.
+		// Done this way so that:
+		//   - rightmost side gets coordinate 1
+		//   - center         gets coordinate 0
+		//   - leftmost  side gets coordinate -1
+		cameraX := 2*float64(x)/float64(g.width) - 1 // X-coordinate in camera space.
+
+		// The direction of the ray is the sum of
+		//   - the direction vector of the camera
+		//   - a part of the plane vector of the camera (g.plane scaled to cameraX).
+		rayDir := g.dir.Add(g.plane.Scale(cameraX))
+
+		// The player position is a float, cast down to int to get the actual world case.
+		worldPt := image.Pt(int(g.pos.X), int(g.pos.Y))
+
+		// Compute deltaDist, the distance to travel to go from
+		// one case to the next on each axis.
+		deltaDist := getDeltaDist(rayDir)
+
+		// This represents the distance between the player and the edges
+		// of the current world case.
+		sideDist := getInitialSideDist(rayDir, deltaDist, g.pos, worldPt)
+
+		// This represents which direction along the ray we travel to find a wall.
+		step := getStep(rayDir)
+
+		// Now the actual DDA starts.
+		//
+		// It's a loop that increments the ray with 1 square every time,
+		// until a wall is hit.
+		//
+		// Each time, either it jumps a square in the x-direction (with step.X)
+		// or a square in the y-direction (with stepY),
+		// it always jumps 1 square at once.
+		//
+		// If the ray's direction would be the x-direction,
+		// the loop will only have to jump a square in the x-direction everytime,
+		// because the ray will never change its y-direction.
+		// If the ray is a bit sloped to the y-direction,
+		// then every so many jumps in the x-direction,
+		// the ray will have to jump one square in the y-direction.
+		// If the ray is exactly the y-direction,
+		// it never has to jump in the x-direction, etc.
+		//
+		// sideDistX and sideDistY get incremented with deltaDistX with
+		// every jump in their direction,
+		// and mapX and mapY get incremented with stepX and stepY respectively.
+		//
+		// When the ray has hit a wall, the loop ends,
+		// and then we'll know whether an x-side or y-side of
+		// a wall was hit in the variable "side",
+		// and what wall was hit with mapX and mapY.
+		//
+		// We won't know exactly where the wall was hit however,
+		// but that's not needed in this case because we won't use textured walls for now.
+
+		var side bool // Was a North-South or a East-West wall hit?
+
+		for worldPt.X < len(g.world) && worldPt.Y < len(g.world[worldPt.X]) { // Sanity checks.
+			if g.world[worldPt.X][worldPt.Y] != 0 {
+				break
+			}
+			if sideDist.X < sideDist.Y {
+				sideDist.X += deltaDist.X
+				worldPt.X += int(step.X)
+				side = false
+			} else {
+				sideDist.Y += deltaDist.Y
+				worldPt.Y += int(step.Y)
+				side = true
+			}
 		}
 
-		if g.world[int(g.pos.X)][int(g.pos.Y+g.dir.Y*s)] == 0 {
-			g.pos.Y += g.dir.Y * s
+		// After the DDA is done, we have to calculate the distance
+		// of the ray to the wall, so that we can calculate how high
+		// the wall has to be drawn after this.
+		perpWallDist := getWallDist(rayDir, step, g.pos, worldPt, side)
+
+		// Calculate height of line to draw on screen.
+		lineHeight := max(1, int(float64(g.height)/perpWallDist))
+
+		// Calculate lowest and highest pixel to fill in current stripe.
+		//
+		// The center of the wall should be at the center of the screen,
+		// and if these points lie outside the screen, they're capped to 0 or g.height-1.
+		//
+		// The y center of the screen is g.height/2. Start from there -1/2 length to there +1/2 length.
+		drawStart, drawEnd := max(0, g.height/2-lineHeight/2), min(g.height-1, g.height/2+lineHeight/2)
+
+		// Draw the line.
+		c := g.getColor(worldPt.X, worldPt.Y)
+		for y := drawStart; y < drawEnd+1; y++ {
+			if side {
+				img.Set(x, y, dimColor(c))
+			} else {
+				img.Set(x, y, c)
+			}
 		}
 	}
-}
 
-func (g *Game) moveLeft(s float64) {
-	if g.world[int(g.pos.X-g.plane.X*s)][int(g.pos.Y)] == 0 {
-		g.pos.X -= g.plane.X * s
-	}
-
-	if g.world[int(g.pos.X)][int(g.pos.Y-g.plane.Y*s)] == 0 {
-		g.pos.Y -= g.plane.Y * s
-	}
-}
-
-func (g *Game) moveBackwards(s float64) {
-	if g.world[int(g.pos.X-g.dir.X*s)][int(g.pos.Y)] == 0 {
-		g.pos.X -= g.dir.X * s
-	}
-
-	if g.world[int(g.pos.X)][int(g.pos.Y-g.dir.Y*s)] == 0 {
-		g.pos.Y -= g.dir.Y * s
-	}
-}
-
-func (g *Game) moveRight(s float64) {
-	if g.world[int(g.pos.X+g.plane.X*s)][int(g.pos.Y)] == 0 {
-		g.pos.X += g.plane.X * s
-	}
-
-	if g.world[int(g.pos.X)][int(g.pos.Y+g.plane.Y*s)] == 0 {
-		g.pos.Y += g.plane.Y * s
-	}
-}
-
-func (g *Game) turnRight(s float64) {
-	oldDirX := g.dir.X
-
-	g.dir.X = g.dir.X*math.Cos(-s) - g.dir.Y*math.Sin(-s)
-	g.dir.Y = oldDirX*math.Sin(-s) + g.dir.Y*math.Cos(-s)
-
-	oldPlaneX := g.plane.X
-
-	g.plane.X = g.plane.X*math.Cos(-s) - g.plane.Y*math.Sin(-s)
-	g.plane.Y = oldPlaneX*math.Sin(-s) + g.plane.Y*math.Cos(-s)
-}
-
-func (g *Game) turnLeft(s float64) {
-	oldDirX := g.dir.X
-
-	g.dir.X = g.dir.X*math.Cos(s) - g.dir.Y*math.Sin(s)
-	g.dir.Y = oldDirX*math.Sin(s) + g.dir.Y*math.Cos(s)
-
-	oldPlaneX := g.plane.X
-
-	g.plane.X = g.plane.X*math.Cos(s) - g.plane.Y*math.Sin(s)
-	g.plane.Y = oldPlaneX*math.Sin(s) + g.plane.Y*math.Cos(s)
-}
-
-func main() {
-	g := &Game{
-		width:  320,
-		height: 200,
-
-		world:    loadWorld(),
-		textures: loadTextures(),
-
-		pos:          Pt(12.0, 14.5),
-		dir:          Pt(-1.0, 0.0),
-		plane:        Pt(0.0, 0.66),
-		wallDistance: 8.0,
-	}
-
-	ebiten.SetWindowSize(g.width*2, g.height*2)
-	ebiten.SetWindowTitle("Ray casting and shadows (Ebitengine Demo)")
-	if runtime.GOOS != "js" {
-		ebiten.SetFullscreen(true)
-	}
-	println("Starting")
-	if err := ebiten.RunGame(g); err != nil {
-		log.Fatal(err)
-	}
+	return img
 }
