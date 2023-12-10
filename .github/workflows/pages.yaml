@@ -27,6 +27,7 @@ jobs:
           mkdir ./assets
           GOOS=js GOARCH=wasm go build -o ./assets/test.wasm ./k
           cp $(go env GOROOT)/misc/wasm/wasm_exec.{html,js} ./assets
+          mv ./assets/wasm_exec.html ./assets/index.html
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v2
         with:
