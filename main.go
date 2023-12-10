@@ -13,6 +13,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
 const (
@@ -95,16 +96,23 @@ const FOV = 60
 
 // Draw implements the ebiten interface.
 func (g *Game) Draw(screen *ebiten.Image) {
-	img := g.Minimap(320, 200)
-	// Draw the image to the screen.
-	op := &ebiten.DrawImageOptions{
-		Blend: ebiten.BlendCopy,
-	}
-	op.GeoM.Translate(float64(screenWidth-img.Bounds().Dx()), 0)
-	screen.DrawImage(img, op)
+	width, height := screen.Bounds().Dx(), screen.Bounds().Dy()
+	img := ebiten.NewImage(width, height)
 
-	// msg := fmt.Sprintf("%d/%d\n%d/%d\n%d\n", len(g.world[0])*int(scale), len(g.world)*int(scale), g.px, g.py, g.pangle)
-	// ebitenutil.DebugPrint(screen, msg)
+	// Draw the background for floor/sky.
+	vector.DrawFilledRect(img, 0, 0, float32(width), float32(height)/2, skyColor, false)
+	vector.DrawFilledRect(img, 0, float32(height)/2, float32(width), float32(height)/2, groundColor, false)
+
+	// Generate the minimap.
+	minimapImg := g.Minimap(int(float64(width)*0.2), int(float64(height)*0.2))
+	// Draw the minimap.
+	minimapOp := &ebiten.DrawImageOptions{}
+	minimapOp.GeoM.Translate(float64(width-minimapImg.Bounds().Dx()), 0)
+	img.DrawImage(minimapImg, minimapOp)
+
+	// Draw the image to the screen.
+	screenOp := &ebiten.DrawImageOptions{}
+	screen.DrawImage(img, screenOp)
 
 	ebitenutil.DebugPrintAt(screen, "WASD: move", 160, 0)
 	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("TPS: %0.2f", ebiten.ActualTPS()), 51, 51)
