@@ -21,11 +21,16 @@ type minimapState struct {
 
 // Minimap draws the world in 2D.
 func (g *Game) Minimap(width, height int) *ebiten.Image {
+	worldSize := image.Rect(0, 0, len(g.world[0]), len(g.world))
+	// Scale the world so it fits in the given bounds.
+	scale := GetScale(width, height, worldSize)
+	// Clamp the smaller dimension.
+	width = worldSize.Dx() * scale
+	height = worldSize.Dy() * scale
+
 	img := ebiten.NewImage(width, height)
 	img.Fill(color.RGBA{A: 0xf, R: 0x10, G: 0x10, B: 0x10})
 	img.Fill(backgroundColor)
-
-	scale := GetScale(img.Bounds().Dx(), img.Bounds().Dy(), image.Rect(0, 0, len(g.world[0]), len(g.world)))
 
 	screenOffset := math2.
 		Pt(img.Bounds().Dx(), img.Bounds().Dy()).
