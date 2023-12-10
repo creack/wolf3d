@@ -1,3 +1,4 @@
+// Package math2 provides 2D math helpers.
 package math2
 
 import (

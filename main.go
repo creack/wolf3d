@@ -1,3 +1,4 @@
+// Package main is the entrypoint.
 package main
 
 import (
@@ -14,9 +15,9 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/vector"
-
 	"go.creack.net/fdf/math3"
 	"go.creack.net/fdf/projection"
+
 	"go.creack.net/wolf3d/math2"
 )
 
@@ -98,13 +99,12 @@ func GetScale(screenWidth, screenHeight int, bounds image.Rectangle) int {
 // FOV angle in degrees.
 const FOV = 60
 
+// Main logic.
 func (g *Game) Main(width, height int) *ebiten.Image {
 	worldSize := image.Rect(0, 0, len(g.world[0]), len(g.world))
 	// Scale the world so it fits in the given bounds.
 	scale := GetScale(width, height, worldSize)
-	// // Clamp the smaller dimension.
-	// width = worldSize.Dx() * scale
-	// height = worldSize.Dy() * scale
+
 	img := ebiten.NewImage(width, height)
 	screenOffset := math2.
 		Pt(img.Bounds().Dx(), img.Bounds().Dy()).
@@ -126,9 +126,6 @@ func (g *Game) Main(width, height int) *ebiten.Image {
 	_ = blockSize
 
 	proj := projection.NewIsomorphic(1)
-	_ = proj // vector.DrawFilledRect(img, float32(origin.X), float32(origin.Y), float32(scale), float32(scale), wallColor, false)
-	// proj.SetOffset(math3.Vec{X: screenOffset.X, Y: screenOffset.Y})
-	// proj.SetAngle(math3.Vec{})
 
 	// Go over each point in the world.
 	for y, row := range g.world {
@@ -157,11 +154,9 @@ func (g *Game) Main(width, height int) *ebiten.Image {
 					continue
 				}
 
-				// vector.DrawFilledRect(img, float32(origin.X), float32(origin.Y), float32(scale), float32(scale), wallBorderColor, true)
 				for i := 0; i < scale; i++ {
 					p := proj.Project(math3.Vec{X: float64(i + int(origin.X)), Y: origin.Y, Z: float64(1)})
 
-					// p.X, p.Y = origin.X, origin.Y
 					vector.StrokeLine(img,
 						float32(p.X), float32(p.Y),
 						float32(p.X), float32(p.Y)+float32(p.Z),
@@ -195,8 +190,6 @@ func (g *Game) Main(width, height int) *ebiten.Image {
 			xa := 64. / math.Tan(a0.Radians())
 			_, _ = ya, xa
 
-			// vector.StrokeRect(img, float32(origin.X), float32(origin.Y), float32(scale), float32(scale), 1, wallBorderColor, false)
-
 			pA := math.Abs(playerPixelCoords.X-origin.X) / math.Cos(float64(math2.NewDegAngle(FOV)))
 			wallHeight := (blockSize / pA) * distanceFromProjectionPlan
 
@@ -208,43 +201,9 @@ func (g *Game) Main(width, height int) *ebiten.Image {
 					1, wallColor, false)
 			}
 
-			// vector.StrokeLine(img, float32(origin.X), float32(origin.Y), float32(origin.X), float32(origin.Y)+float32(wallHeight), 1, wallBorderColor, false)
-			// for i := 0; i < int(wallHeight); i++ {
-			// 	for j := 0; j < scale; j++ {
-			// 		x, y := origin.X+float64(j), origin.Y+float64(i)
-			// 		p := proj.Project(math3.Vec{X: x, Y: y, Z: wallHeight})
-			// 		// fmt.Println(i, j, x, y, p)
-			// 		img.Set(int(p.X), int(p.Y), wallColor)
-			// 		// img.Set(int(x), int(y), wallColor)
-			// 	}
-			// }
-			// vector.DrawFilledRect(img, float32(origin.X), float32(origin.Y), float32(scale), float32(wallHeight), wallColor, false)
-
 			ebitenutil.DebugPrintAt(img, fmt.Sprintf("A: %v, H: %v", A, wallHeight), int(origin.X), int(origin.Y))
-			// alpha = atan(blocksize/xa)
-
-			//-mur trouver de façon horizontale : A(x,y)
-			//-mur trouver de façon verticale : B(x1,By1)
-			//-PA = abs (PlayerPtX-x) / cos(AngleDeVision)
-			//-PB = abs (PlayerPtX-x1) / cos(AngleDeVision)
-			// distanceIncorrecte=min(PA,PB)
-			// correcteDistance = distanceIncorrecte * cos(Beta)
-			//   Beta = +30 pour les rayons à gauche du rayon du milieu
-			//   Beta = -30 pour les rayons à droite du rayon du milieu
-
-			// PA := math.Abs(playerPixelCoords.X - x/cos(FOV))
-			// PB := math.Abs(playerPixelCoords.X - x1/cos(FOV))
-			// wallHeight := (blockSize / min(PA, PB)) * distanceFromProjectionPlan
-			// _ = wallHeight
-
 		}
 	}
-
-	// Bx = int (playerPixelCoords.X/64) * (64) + 64.
-	// // Si les rayons ont été confrontés à gauche
-	// Bx = int (PlayerPtX/64) * (64) - 1.
-	// Et on a :
-	// By = playplayerPixelCoords.Y + (plaplayerPixelCoords.X-x) * math.Tan (FOV);
 
 	return img
 }
@@ -255,8 +214,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	img := ebiten.NewImage(width, height)
 
 	// Draw the background for floor/sky.
-	// vector.DrawFilledRect(img, 0, 0, float32(width), float32(height)/2, skyColor, false)
-	// vector.DrawFilledRect(img, 0, float32(height)/2, float32(width), float32(height)/2, groundColor, false)
+	vector.DrawFilledRect(img, 0, 0, float32(width), float32(height)/2, skyColor, false)
+	vector.DrawFilledRect(img, 0, float32(height)/2, float32(width), float32(height)/2, groundColor, false)
 
 	// Main.
 	mainImg := g.Main(width, height)

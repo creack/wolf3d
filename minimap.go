@@ -62,7 +62,6 @@ func (g *Game) Minimap(width, height int) *ebiten.Image {
 		}
 
 		vector.StrokeLine(img, float32(playerPixelCoords.X), float32(playerPixelCoords.Y), float32(cur.X), float32(cur.Y), 1, c, false)
-		// ebitenutil.DebugPrintAt(img, fmt.Sprintf("%.2f\n%.2f\n%.2f", a0.Degrees(), a1.Degrees(), a2.Degrees()), int(cur.X), int(cur.Y))
 	}
 
 	// Go over each point in the world.
