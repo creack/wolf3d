@@ -41,3 +41,19 @@ func (a Angle) Normalize() Angle {
 	}
 	return a
 }
+
+// Between checks if the angle is in between the parameter range.
+func (a Angle) Between(start, end Angle) bool {
+	// Normalize angles.
+	a = a.Normalize()
+	start = start.Normalize()
+	end = end.Normalize()
+
+	// Check if angle is between start and end.
+	if start <= end {
+		return a >= start && a <= end
+	}
+
+	// Handle the case where the range spans 0 degrees.
+	return a >= start || a <= end
+}
