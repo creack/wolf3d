@@ -29,8 +29,6 @@ func (g *Game) Minimap(width, height int) *ebiten.Image {
 	height = worldSize.Dy() * scale
 
 	img := ebiten.NewImage(width, height)
-	img.Fill(color.RGBA{A: 0xf, R: 0x10, G: 0x10, B: 0x10})
-	img.Fill(backgroundColor)
 
 	screenOffset := math2.
 		Pt(img.Bounds().Dx(), img.Bounds().Dy()).
