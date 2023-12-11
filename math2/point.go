@@ -36,6 +36,14 @@ func (p Point) Sub(p2 Point) Point {
 	}
 }
 
+// Mul p and p2.
+func (p Point) Mul(p2 Point) Point {
+	return Point{
+		X: p.X * p2.X,
+		Y: p.Y * p2.Y,
+	}
+}
+
 // Scale the point by the given factor.
 func (p Point) Scale(n float64) Point {
 	return Point{
@@ -50,18 +58,15 @@ func (p Point) Magnitude(p2 Point) float64 { return p.Sub(p2).Norm() }
 // Norm returns the point's norm.
 func (p Point) Norm() float64 { return math.Hypot(p.X, p.Y) }
 
-// Rotate the point around origin by angle.
-func (p Point) Rotate(alpha Angle, origin Point) Point {
+// Rotate the point by angle.
+// See math2.Rotate to rotate around a given point.
+func (p Point) Rotate(alpha Angle) Point {
 	// Lookup cos(alpha) and sin(alpha).
 	sin, cos := math.Sincos(alpha.Radians())
 
-	// Remove the origin offset.
-	p = p.Sub(origin)
 	// Rotate.
-	p = Point{
+	return Point{
 		X: p.X*cos - p.Y*sin,
 		Y: p.X*sin + p.Y*cos,
 	}
-	// Add back the origin offset.
-	return p.Add(origin)
 }

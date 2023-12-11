@@ -5,26 +5,28 @@ import (
 	"image/color"
 	"math"
 	"time"
+
+	"go.creack.net/wolf3d/math2"
 )
 
 // Game holds the state.
 type Game struct {
-	world    [][]int
+	world    [][]MapPoint
 	textures *image.RGBA
 
 	width, height int
 
 	// NOTE: FOV is the ration of dir/plane vectors.
-	dir   Point // Direction vector.
-	plane Point // Camera plane vector.
+	dir   math2.Point // Direction vector.
+	plane math2.Point // Camera plane vector.
 
-	pos Point // Current player position.
+	pos math2.Point // Current player position.
 
 	last time.Time // Time when last frame was rendered. Used to scale movements.
 }
 
 func (g *Game) getTexNum(x, y int) int {
-	return g.world[x][y]
+	return g.world[x][y].wallType
 }
 
 func (g *Game) getColor(x, y int) color.Color {
@@ -95,16 +97,16 @@ func dimColor(in color.Color) color.Color {
 //
 // For reference, the actual formula code:
 //
-//	func getDeltaDist(rayDir Point) Point {
+//	func getDeltaDist(rayDir math2.Point) math2.Point {
 //		slopeX, slopeY := rayDir.X/rayDir.Y, rayDir.Y/rayDir.X
-//		return Point{math.Hypot(1, slopeY), math.Hypot(slopeX, 1)}
+//		return math2.Point{math.Hypot(1, slopeY), math.Hypot(slopeX, 1)}
 //	}
 //
 // and the general simplified version:
 //
-//	func getDeltaDist(rayDir Point) Point {
+//	func getDeltaDist(rayDir math2.Point) math2.Point {
 //		rayDirLen := math.Hypot(rayDir.X, rayDir.Y)
-//		out := Point{math.Inf(1), math.Inf(1)} // Default values in case the denominator is 0.
+//		out := math2.Point{math.Inf(1), math.Inf(1)} // Default values in case the denominator is 0.
 //		if rayDir.X != 0 {
 //			out.X = math.Abs(rayDirLen / rayDir.X)
 //		}
@@ -113,11 +115,11 @@ func dimColor(in color.Color) color.Color {
 //		}
 //		return out
 //	}
-func getDeltaDist(rayDir Point) Point {
+func getDeltaDist(rayDir math2.Point) math2.Point {
 	// For our purpose we don't need the length, just the ratio.
 	// Use the simplified version with a length of 1.
 	const rayDirLen = 1.
-	out := Point{math.Inf(1), math.Inf(1)} // Default values in case the denominator is 0.
+	out := math2.Pt(math.Inf(1), math.Inf(1)) // Default values in case the denominator is 0.
 	if rayDir.X != 0 {
 		out.X = math.Abs(rayDirLen / rayDir.X)
 	}
@@ -138,8 +140,8 @@ func getDeltaDist(rayDir Point) Point {
 // Note that we always have:
 //   - worldPt.X <= g.pos.X <= worldPt.X+1
 //   - worldPt.Y <= g.pos.Y <= worldPt.Y+1
-func getInitialSideDist(rayDir, deltaDist, pos Point, worldPt image.Point) Point {
-	var sideDist Point
+func getInitialSideDist(rayDir, deltaDist, pos math2.Point, worldPt image.Point) math2.Point {
+	var sideDist math2.Point
 
 	if rayDir.X < 0 {
 		// Relative X position within the world case from the left.
@@ -162,9 +164,9 @@ func getInitialSideDist(rayDir, deltaDist, pos Point, worldPt image.Point) Point
 
 // getStep returns a vector with either +1 or -1
 // to describe the direction each step should take.
-func getStep(rayDir Point) Point {
+func getStep(rayDir math2.Point) math2.Point {
 	// What direction to step in x or y-direction (either +1 or -1).
-	step := Point{1, 1}
+	step := math2.Pt(1, 1)
 	if rayDir.X < 0 {
 		step.X = -1
 	}
@@ -184,7 +186,7 @@ func getStep(rayDir Point) Point {
 //
 // The fisheye effect is an effect you see if you use the real distance,
 // where all the walls become rounded, and can make you sick if you rotate.
-func getWallDist(rayDir, step, pos Point, worldPt image.Point, side bool) float64 {
+func getWallDist(rayDir, step, pos math2.Point, worldPt image.Point, side bool) float64 {
 	if side {
 		return (float64(worldPt.Y) - pos.Y + (1-step.Y)/2) / rayDir.Y
 	}
@@ -257,7 +259,7 @@ func (g *Game) frame() image.Image {
 		var side bool // Was a North-South or a East-West wall hit?
 
 		for worldPt.X < len(g.world) && worldPt.Y < len(g.world[worldPt.X]) { // Sanity checks.
-			if g.world[worldPt.X][worldPt.Y] != 0 {
+			if g.world[worldPt.X][worldPt.Y].wallType != 0 {
 				break
 			}
 			if sideDist.X < sideDist.Y {

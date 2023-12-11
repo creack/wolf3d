@@ -34,9 +34,9 @@ func (p Point) CoordinatesFromAngleDist(a Angle, length float64) Point {
 	// Get the angle between origin and pp1.
 	origAngle := Point{}.GetAngle(p)
 	// Rotate the vector with the origRad angle to be at the origin->p1 angle.
-	pv1 := pv.Rotate(origAngle, Point{})
+	pv1 := pv.Rotate(origAngle)
 	// Then rotate the vector with the relative angle to be at the origin->p2 angle.
-	pv2 := pv1.Rotate(a, Point{})
+	pv2 := pv1.Rotate(a)
 
 	// Add the origin offset to the result.
 	return pv2
@@ -49,4 +49,14 @@ func CoordinatesFromAngleDist(origin, p1 Point, a Angle, length float64) Point {
 		Sub(origin).                         // Remove the origin offset.
 		CoordinatesFromAngleDist(a, length). // Get the coordinates.
 		Add(origin)                          // Add the origin offset back.
+}
+
+// Rotate the point around origin by angle.
+func Rotate(p Point, alpha Angle, origin Point) Point {
+	// Remove the origin offset.
+	p = p.Sub(origin)
+	// Rotate.
+	p = p.Rotate(alpha)
+	// Add back the origin offset.
+	return p.Add(origin)
 }

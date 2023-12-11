@@ -2,22 +2,18 @@ package main
 
 import (
 	"fmt"
-	"image/color"
 	"strconv"
 	"strings"
 
 	"go.creack.net/wolf3d/math2"
 )
 
-//nolint:gochecknoglobals // Expected "readonly" global.
-var defaultColor = color.White
-
 func parseMap(mapData []byte) ([][]MapPoint, error) {
 	// Start by cleaning up the input, removing blank lines and dup spaces.
 	//nolint:prealloc // False positive.
 	var grid [][]string
 	for _, line := range strings.Split(string(mapData), "\n") {
-		if line == "" {
+		if line == "" || line[0] == '#' {
 			continue
 		}
 		var gridLine []string
@@ -42,9 +38,8 @@ func parseMap(mapData []byte) ([][]MapPoint, error) {
 			}
 
 			p := MapPoint{
-				Point:  math2.Pt(x, y),
-				isWall: h != 0,
-				color:  defaultColor,
+				Point:    math2.Pt(x, y),
+				wallType: h,
 			}
 
 			points = append(points, p)
@@ -63,6 +58,5 @@ func parseMap(mapData []byte) ([][]MapPoint, error) {
 // 3d vector with color.
 type MapPoint struct {
 	math2.Point
-	isWall bool
-	color  color.Color
+	wallType int
 }
