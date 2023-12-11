@@ -289,6 +289,59 @@ func (g *Game) frame() image.Image {
 		// The y center of the screen is g.height/2. Start from there -1/2 length to there +1/2 length.
 		drawStart, drawEnd := max(0, g.height/2-lineHeight/2), min(g.height-1, g.height/2+lineHeight/2)
 
+		// The value wallX represents the exact value where the
+		// wall was hit, not just the integer coordinates of the wall.
+		// This is required to know which x-coordinate of the texture
+		// we have to use.
+		//
+		// This is calculated by first calculating the exact
+		// x or y coordinate in the world, and then subtracting
+		// the integer value of the wall off it.
+		//
+		// Note that even if it's called wallX, it's actually an
+		// y-coordinate of the wall if side==1, but it's always
+		// the x-coordinate of the texture.
+		var wallX float64 // Where exactly the wall was hit.
+		if !side {
+			wallX = g.pos.Y + perpWallDist*rayDir.Y
+		} else {
+			wallX = g.pos.X + perpWallDist*rayDir.X
+		}
+		wallX -= math.Floor(wallX)
+
+		const texSize = 64.
+
+		// x coordinate on the texture
+		texX := int(wallX * texSize)
+		if !side && rayDir.X > 0 {
+			texX = texSize - texX - 1
+		}
+		if side && rayDir.Y < 0 {
+			texX = texSize - texX - 1
+		}
+		texNum := g.getTexNum(worldPt.X, worldPt.Y)
+		texPos := float64(drawStart-g.height/2+lineHeight/2) * (1.0 * texSize / float64(lineHeight))
+		for y := drawStart; y < drawEnd+1; y++ {
+			// d := y*256 - g.height*128 + lineHeight*128
+			// texY := ((d * texSize) / lineHeight) / 256
+
+			// Cast the texture coordinate to integer, and mask with (texHeight - 1) in case of overflow
+			texY := int(texPos) & (64 - 1)
+
+			c := g.textures.RGBAAt(
+				texSize*(texNum)+texX,
+				texY,
+			)
+
+			if side {
+				c.R /= 2
+				c.G /= 2
+				c.B /= 2
+			}
+
+			img.Set(x, y, c)
+		}
+		continue
 		// Draw the line.
 		c := g.getColor(worldPt.X, worldPt.Y)
 		for y := drawStart; y < drawEnd+1; y++ {

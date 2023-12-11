@@ -51,7 +51,7 @@ func main() {
 		world:    world,
 		textures: textures,
 
-		pos:   math2.Pt(22.0, 11.5),
+		pos:   math2.Pt(12.0, 11.5),
 		dir:   math2.Pt(-1.0, 0.0),
 		plane: math2.Pt(0.0, 0.66),
 	}
