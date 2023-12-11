@@ -12,6 +12,7 @@ import (
 	"image/png"
 	"log"
 	"runtime"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
@@ -45,8 +46,8 @@ func main() {
 	}
 
 	g := &Game{
-		width:  1280,
-		height: 1024,
+		width:  800,
+		height: 600,
 
 		world:    world,
 		textures: textures,
@@ -54,6 +55,8 @@ func main() {
 		pos:   math2.Pt(12.0, 11.5),
 		dir:   math2.Pt(-1.0, 0.0),
 		plane: math2.Pt(0.0, 0.66),
+
+		last: time.Now(),
 	}
 
 	ebiten.SetWindowSize(g.width*2, g.height*2)

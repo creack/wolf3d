@@ -7,6 +7,7 @@ import (
 	"go.creack.net/wolf3d/math2"
 )
 
+// DDA (Digital Differential Analysis).
 type DDA struct {
 	// Initially, the world player position,
 	// then the nearest wall position after run().

@@ -31,7 +31,8 @@ func (g *Game) frame() image.Image {
 
 	// Go over each point along the X axis and cast a ray between the play and that point.
 	for x := 0; x < g.width; x++ {
-		// Run the DDA algo to cast a ray and get the distance to the wall.
+		// Run the DDA algo to cast a ray and get the distance
+		// to the nearest wall as well as if we touch it from the X or Y side.
 		dda := newDDA(x, g.width, g.pos, g.dir, g.plane)
 		dda.run(g.world, g.pos)
 
