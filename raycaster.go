@@ -39,6 +39,8 @@ type Game struct {
 // Implements the DDA algoright (Digital Differential Analysis).
 func (g *Game) frame() image.Image {
 	img := image.NewRGBA(image.Rect(0, 0, g.width, g.height))
+	// NOTE: Perf gain by using a buffer variable vs using img.Pix directly.
+	buffer := img.Pix
 
 	// img := image.NewRGBA(image.Rect(0, 0, g.width, g.height))
 	// Go over each point along the X axis and cast a ray between the play and that point.
@@ -108,11 +110,11 @@ func (g *Game) frame() image.Image {
 			if dda.side {
 				texs = &g.sideTexturesCache
 			}
-			// Manually inline for perf gain.
+			// Manually inline for perf gain (~5fps).
 			off := (y*g.width + x) * 4
-			img.Pix[off] = texs[texY][texNum*texSize+texX][0]
-			img.Pix[off+1] = texs[texY][texNum*texSize+texX][1]
-			img.Pix[off+2] = texs[texY][texNum*texSize+texX][2]
+			buffer[off] = texs[texY][texNum*texSize+texX][0]
+			buffer[off+1] = texs[texY][texNum*texSize+texX][1]
+			buffer[off+2] = texs[texY][texNum*texSize+texX][2]
 		}
 
 		g.drawBackground(img, dda, x, wallX, drawEnd)
@@ -122,6 +124,7 @@ func (g *Game) frame() image.Image {
 }
 
 func (g *Game) drawBackground(img *image.RGBA, dda *DDA, x int, wallX float64, drawEnd int) {
+	// NOTE: 10fps gain by creating a buffer variable vs using img.Pix directly.
 	buffer := img.Pix
 	var floorWall math2.Point
 
@@ -141,7 +144,6 @@ func (g *Game) drawBackground(img *image.RGBA, dda *DDA, x int, wallX float64, d
 	}
 
 	distWall, distPlayer := dda.perpWallDist, 0.0
-
 	for y := drawEnd + 1; y < g.height; y++ {
 		currentDist := float64(g.height) / (2.0*float64(y) - float64(g.height))
 
