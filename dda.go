@@ -14,7 +14,6 @@ type DDA struct {
 	worldPt image.Point
 
 	// Initial values.
-	x         int         // Current x value along the x axis.
 	rayDir    math2.Point // Current ray.
 	deltaDist math2.Point // Distance along the ray to hop one case on each axis.
 	sideDist  math2.Point // Distance between the player and the sides of the current case.
@@ -23,24 +22,15 @@ type DDA struct {
 	// Result values.
 	side         bool    // Was a North-South or a East-West wall hit?
 	perpWallDist float64 // Distance from the wall to the camera plane (instead of player to avoid fisheye).
+	realWallDist float64
 }
 
-func newDDA(x, width int, pos, dir, plane math2.Point) *DDA {
-	// cameraX is the x-coordinate on the camera plane that
-	// the current x-coordinate of the screen represents.
-	// Done this way so that:
-	//   - rightmost side gets coordinate 1
-	//   - center         gets coordinate 0
-	//   - leftmost  side gets coordinate -1
-	cameraX := 2*float64(x)/float64(width) - 1 // X-coordinate in camera space.
-
+func newDDA(cameraX float64, pos, dir, plane math2.Point, worldPt image.Point) *DDA {
 	dda := &DDA{
-		x: x,
-		// The player position is a float, cast down to int to get the actual world case.
-		worldPt: image.Pt(int(pos.X), int(pos.Y)),
+		worldPt: worldPt,
 		// The direction of the ray is the sum of
 		//   - the direction vector of the camera
-		//   - a part of the plane vector of the camera (g.plane scaled to cameraX).
+		//   - a part of the plane vector of the camera (plane scaled to cameraX).
 		rayDir: dir.Add(plane.Scale(cameraX)),
 	}
 
@@ -88,8 +78,8 @@ func newDDA(x, width int, pos, dir, plane math2.Point) *DDA {
 // We won't know exactly where the wall was hit however,
 // but that's not needed in this case because we won't use textured walls for now.
 func (dda *DDA) run(world [][]MapPoint, pos math2.Point) {
-	for dda.worldPt.X < len(world) && dda.worldPt.Y < len(world[dda.worldPt.X]) { // Sanity checks.
-		if world[dda.worldPt.X][dda.worldPt.Y].wallType != 0 {
+	for dda.worldPt.Y < len(world) && dda.worldPt.X < len(world[dda.worldPt.Y]) { // Sanity checks.
+		if world[dda.worldPt.Y][dda.worldPt.X].wallType != 0 {
 			break
 		}
 		if dda.sideDist.X < dda.sideDist.Y {
@@ -241,4 +231,5 @@ func (dda *DDA) getWallDist(pos math2.Point) {
 	} else {
 		dda.perpWallDist = (float64(dda.worldPt.X) - pos.X + (1-dda.step.X)/2) / dda.rayDir.X
 	}
+	dda.realWallDist = dda.perpWallDist * dda.rayDir.Norm()
 }

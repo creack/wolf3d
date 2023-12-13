@@ -6,13 +6,16 @@ import (
 	"math"
 	"time"
 
+	"github.com/hajimehoshi/ebiten/v2"
+
 	"go.creack.net/wolf3d/math2"
 )
 
+const texSize = 64
+
 // Game holds the state.
 type Game struct {
-	world    [][]MapPoint
-	textures *image.RGBA
+	world [][]MapPoint
 
 	width, height int
 
@@ -23,17 +26,37 @@ type Game struct {
 	pos math2.Point // Current player position.
 
 	last time.Time // Time when last frame was rendered. Used to scale movements.
+
+	mapMod   int // -1: hidden, 0: minimap, 1: fullmap.
+	showRays bool
+
+	// Preloaded/cache data.
+	textures, sideTextures           *image.RGBA
+	texturesCache, sideTexturesCache [texSize][texSize * 8][3]byte
+	triangleImg                      *ebiten.Image
 }
 
 // Implements the DDA algoright (Digital Differential Analysis).
 func (g *Game) frame() image.Image {
 	img := image.NewRGBA(image.Rect(0, 0, g.width, g.height))
 
+	// img := image.NewRGBA(image.Rect(0, 0, g.width, g.height))
 	// Go over each point along the X axis and cast a ray between the play and that point.
 	for x := 0; x < g.width; x++ {
+		// cameraX is the x-coordinate on the camera plane that
+		// the current x-coordinate of the screen represents.
+		// Done this way so that:
+		//   - rightmost side gets coordinate 1
+		//   - center         gets coordinate 0
+		//   - leftmost  side gets coordinate -1
+		cameraX := 2*float64(x)/float64(g.width) - 1 // X-coordinate in camera space.
+
+		// The player position is a float, cast down to int to get the actual world case.
+		worldPt := image.Pt(int(g.pos.X), int(g.pos.Y))
+
 		// Run the DDA algo to cast a ray and get the distance
 		// to the nearest wall as well as if we touch it from the X or Y side.
-		dda := newDDA(x, g.width, g.pos, g.dir, g.plane)
+		dda := newDDA(cameraX, g.pos, g.dir, g.plane, worldPt)
 		dda.run(g.world, g.pos)
 
 		// Calculate height of line to draw on screen.
@@ -67,11 +90,8 @@ func (g *Game) frame() image.Image {
 		}
 		wallX -= math.Floor(wallX)
 
-		const texSize = 64.
-		const texWidth, texHeight = texSize, texSize
-
 		// x coordinate on the texture.
-		texX := int(wallX * texWidth)
+		texX := int(wallX * texSize)
 		if !dda.side && dda.rayDir.X > 0 {
 			texX = texSize - texX - 1
 		}
@@ -84,27 +104,25 @@ func (g *Game) frame() image.Image {
 			d := y - (g.height/2 - lineHeight/2)
 			texY := (d * texSize) / lineHeight
 
-			c := g.textures.RGBAAt(
-				texNum*texWidth+texX,
-				texY,
-			)
-
+			texs := &g.texturesCache
 			if dda.side {
-				c.R /= 2
-				c.G /= 2
-				c.B /= 2
+				texs = &g.sideTexturesCache
 			}
-
-			img.Set(x, y, c)
+			// Manually inline for perf gain.
+			off := (y*g.width + x) * 4
+			img.Pix[off] = texs[texY][texNum*texSize+texX][0]
+			img.Pix[off+1] = texs[texY][texNum*texSize+texX][1]
+			img.Pix[off+2] = texs[texY][texNum*texSize+texX][2]
 		}
 
-		g.drawBackground(img, dda, wallX, drawEnd)
+		g.drawBackground(img, dda, x, wallX, drawEnd)
 	}
 
 	return img
 }
 
-func (g *Game) drawBackground(img *image.RGBA, dda *DDA, wallX float64, drawEnd int) {
+func (g *Game) drawBackground(img *image.RGBA, dda *DDA, x int, wallX float64, drawEnd int) {
+	buffer := img.Pix
 	var floorWall math2.Point
 
 	switch {
@@ -123,7 +141,6 @@ func (g *Game) drawBackground(img *image.RGBA, dda *DDA, wallX float64, drawEnd 
 	}
 
 	distWall, distPlayer := dda.perpWallDist, 0.0
-	const texSize = 64
 
 	for y := drawEnd + 1; y < g.height; y++ {
 		currentDist := float64(g.height) / (2.0*float64(y) - float64(g.height))
@@ -137,34 +154,41 @@ func (g *Game) drawBackground(img *image.RGBA, dda *DDA, wallX float64, drawEnd 
 
 		fx := int(currentFloor.X*float64(texSize)) % texSize
 		fy := int(currentFloor.Y*float64(texSize)) % texSize
+		fx2 := fx + (4 * texSize)
 
-		img.Set(dda.x, y, g.textures.At(fx, fy))
+		// NOTE: 20fps gain by manually inlining.
+		off := (y*g.width + x) * 4
+		buffer[off] = g.texturesCache[fy][fx][0]
+		buffer[off+1] = g.texturesCache[fy][fx][1]
+		buffer[off+2] = g.texturesCache[fy][fx][2]
 
-		img.Set(dda.x, g.height-y-1, g.textures.At(fx+(4*texSize), fy))
-		img.Set(dda.x, g.height-y-0, g.textures.At(fx+(4*texSize), fy))
+		off1 := ((g.height-y)*g.width + x) * 4
+		buffer[off1] = g.texturesCache[fy][fx2][0]
+		buffer[off1+1] = g.texturesCache[fy][fx2][1]
+		buffer[off1+2] = g.texturesCache[fy][fx2][2]
 	}
 }
 
 func (g *Game) getTexNum(x, y int) int {
-	return g.world[x][y].wallType
+	return g.world[y][x].wallType
 }
 
 func (g *Game) getColor(x, y int) color.Color {
 	switch g.getTexNum(x, y) {
 	case 1:
-		return color.RGBA{R: 255}
+		return color.RGBA{A: 255, R: 255}
 	case 2:
-		return color.RGBA{G: 255}
+		return color.RGBA{A: 255, G: 255}
 	case 3:
-		return color.RGBA{B: 255}
+		return color.RGBA{A: 255, B: 255}
 	case 4:
-		return color.White
+		return color.RGBA{A: 255, R: 180, G: 180, B: 180}
 	case 5:
-		return color.RGBA{R: 0, G: 255, B: 255}
+		return color.RGBA{A: 255, R: 0, G: 255, B: 255}
 	case 6:
-		return color.RGBA{R: 255, G: 0, B: 255}
+		return color.RGBA{A: 255, R: 255, G: 0, B: 255}
 	case 7:
-		return color.RGBA{R: 255, G: 255, B: 0}
+		return color.RGBA{A: 255, R: 255, G: 255, B: 0}
 	default:
 		return color.Black
 	}

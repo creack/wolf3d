@@ -60,3 +60,9 @@ reflex curl -v http://localhost:8080/_notify
 - up/down w/s:  Move up/down.
 - right/left: Turn right/left.
 - a/d: Strife right/left.
+
+## Ack
+
+Largely based on:
+- https://lodev.org/cgtutor/raycasting.html#Untextured_Raycaster_
+- https://github.com/faiface/pixel-examples/tree/704acac0e5f6fc19b27d5772033d77fc58cb7d59/community/raycaster

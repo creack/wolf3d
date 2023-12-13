@@ -44,6 +44,15 @@ func (p Point) Mul(p2 Point) Point {
 	}
 }
 
+// Div p with p2.
+// NOTE: Go handles div by 0 by setting the value to Inf.
+func (p Point) Div(p2 Point) Point {
+	return Point{
+		X: p.X / p2.X,
+		Y: p.Y / p2.Y,
+	}
+}
+
 // Scale the point by the given factor.
 func (p Point) Scale(n float64) Point {
 	return Point{
@@ -55,7 +64,7 @@ func (p Point) Scale(n float64) Point {
 // Magnitude returns the length of the line p->p2.
 func (p Point) Magnitude(p2 Point) float64 { return p.Sub(p2).Norm() }
 
-// Norm returns the point's norm.
+// Norm returns the point's norm. aka length aka magnitude aka hypot.
 func (p Point) Norm() float64 { return math.Hypot(p.X, p.Y) }
 
 // Rotate the point by angle.

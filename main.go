@@ -8,6 +8,7 @@ import (
 	_ "embed"
 	"fmt"
 	"image"
+	"image/color"
 	"image/draw"
 	"image/png"
 	"log"
@@ -25,14 +26,23 @@ var textureData []byte
 //go:embed maps/map4
 var mapData []byte
 
-func loadTextures(textureData []byte) (*image.RGBA, error) {
+func loadTextures(textureData []byte) (front, side *image.RGBA, err error) {
 	p, err := png.Decode(bytes.NewReader(textureData))
 	if err != nil {
-		return nil, fmt.Errorf("png.Decode: %w", err)
+		return nil, nil, fmt.Errorf("png.Decode: %w", err)
 	}
-	m := image.NewRGBA(p.Bounds())
-	draw.Draw(m, m.Bounds(), p, image.Point{}, draw.Src)
-	return m, nil
+	front = image.NewRGBA(p.Bounds())
+	draw.Draw(front, front.Bounds(), p, image.Point{}, draw.Src)
+
+	side = image.NewRGBA(p.Bounds())
+	draw.Draw(side, side.Bounds(), p, image.Point{}, draw.Src)
+	for y := 0; y < side.Rect.Dy(); y++ {
+		for x := 0; x < side.Rect.Dx(); x++ {
+			side.Set(x, y, dimColor(side.At(x, y)))
+		}
+	}
+
+	return front, side, nil
 }
 
 func main() {
@@ -40,24 +50,56 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	textures, err := loadTextures(textureData)
+	textures, sideTextures, err := loadTextures(textureData)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	g := &Game{
-		width:  800,
-		height: 600,
+		width:  1280,
+		height: 720,
+		// width:  3840,
+		// height: 2160,
 
-		world:    world,
-		textures: textures,
+		world:        world,
+		textures:     textures,
+		sideTextures: sideTextures,
 
-		pos:   math2.Pt(12.0, 11.5),
-		dir:   math2.Pt(-1.0, 0.0),
-		plane: math2.Pt(0.0, 0.66),
+		pos:   math2.Pt(float64(len(world[0])/2), float64(len(world))/2),
+		dir:   math2.Pt(1, 0),
+		plane: math2.Pt(0, 0.66),
 
 		last: time.Now(),
+
+		showRays: false,
+		mapMod:   -1,
 	}
+	// g.texturesCache = make([][][3]byte, g.height)
+	for y := range g.texturesCache {
+		// g.texturesCache[y] = make([][3]byte, g.width)
+		for x := range g.texturesCache[y] {
+			// g.texturesCache[x][y] = make([]byte, 3)
+			r1, g1, b1, _ := g.textures.At(x, y).RGBA()
+			g.texturesCache[y][x][0] = byte(r1)
+			g.texturesCache[y][x][1] = byte(g1)
+			g.texturesCache[y][x][2] = byte(b1)
+			// g.texturesCache[y][x] = g.textures.At(x, y)
+		}
+	}
+	// g.sideTexturesCache = make([][][3]byte, g.height)
+	for y := range g.sideTexturesCache {
+		// g.sideTexturesCache[y] = make([][3]byte, g.width)
+		for x := range g.sideTexturesCache[y] {
+			// g.sideTexturesCache[x][y] = make([]byte, 3)
+			r1, g1, b1, _ := g.sideTextures.At(x, y).RGBA()
+			g.sideTexturesCache[y][x][0] = byte(r1)
+			g.sideTexturesCache[y][x][1] = byte(g1)
+			g.sideTexturesCache[y][x][2] = byte(b1)
+			// g.sideTexturesCache[y][x] = g.sideTextures.At(x, y)
+		}
+	}
+	g.triangleImg = ebiten.NewImage(g.width, g.height)
+	g.triangleImg.Fill(color.White)
 
 	ebiten.SetWindowSize(g.width*2, g.height*2)
 	ebiten.SetWindowTitle("Ray casting and shadows (Ebitengine Demo)")
