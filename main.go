@@ -5,7 +5,7 @@ package main
 
 import (
 	"bytes"
-	_ "embed"
+	"embed"
 	"fmt"
 	"image"
 	"image/color"
@@ -23,8 +23,8 @@ import (
 //go:embed textures.png
 var textureData []byte
 
-//go:embed maps/map4
-var mapData []byte
+//go:embed maps/*
+var mapData embed.FS
 
 func loadTextures(textureData []byte) (front, side *image.RGBA, err error) {
 	p, err := png.Decode(bytes.NewReader(textureData))
@@ -46,33 +46,29 @@ func loadTextures(textureData []byte) (front, side *image.RGBA, err error) {
 }
 
 func main() {
-	world, err := parseMap(mapData)
-	if err != nil {
-		log.Fatal(err)
-	}
 	textures, sideTextures, err := loadTextures(textureData)
 	if err != nil {
 		log.Fatal(err)
 	}
-
 	g := &Game{
 		width:  1280,
 		height: 720,
 		// width:  3840,
 		// height: 2160,
 
-		world:        world,
 		textures:     textures,
 		sideTextures: sideTextures,
 
-		pos:   math2.Pt(float64(len(world[0])/2), float64(len(world))/2),
 		dir:   math2.Pt(1, 0),
 		plane: math2.Pt(0, 0.66),
 
 		last: time.Now(),
 
 		showRays: false,
-		mapMod:   -1,
+		mapMod:   0,
+	}
+	if err := g.loadMap("maps/map4"); err != nil {
+		log.Fatal(err)
 	}
 	// g.texturesCache = make([][][3]byte, g.height)
 	for y := range g.texturesCache {

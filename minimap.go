@@ -121,7 +121,7 @@ func (g *Game) minimap(width, height int) image.Image {
 	{
 		img1, _ := img.(*ebiten.Image)
 		op := &ebiten.DrawImageOptions{}
-		op.ColorScale.ScaleAlpha(0.5)
+		op.ColorScale.ScaleAlpha(0.7)
 		img1.DrawImage(shadowImage, op)
 		img = img1
 	}
@@ -129,15 +129,7 @@ func (g *Game) minimap(width, height int) image.Image {
 	g.drawMinimapWalls(img, scale, hits)
 	img = g.drawMinimapPlayer(img, scale)
 
-	if g.mapMod != 0 {
-		return img
-	}
-
-	img2, _ := img.(*ebiten.Image)
-	img3 := ebiten.NewImage(width, height)
-	img3.Fill(color.White)
-	img3.DrawImage(img2, &ebiten.DrawImageOptions{})
-	return img3
+	return img
 }
 
 func (g *Game) drawMinimapPlayer(i draw.Image, scale int) draw.Image {
@@ -146,8 +138,10 @@ func (g *Game) drawMinimapPlayer(i draw.Image, scale int) draw.Image {
 	spos := g.pos.Scale(float64(scale))
 	// Draw the player itself.
 	vector.DrawFilledCircle(img, float32(spos.X), float32(spos.Y), float32(min(1, scale)), color.RGBA{A: 255, R: 255}, true)
-	// Highlight the current world coordinate.
-	vector.StrokeRect(img, float32(int(g.pos.X)*scale), float32(int(g.pos.Y)*scale), float32(scale), float32(scale), 1, color.White, false)
+	if g.showHighlight {
+		// Highlight the current world coordinate.
+		vector.StrokeRect(img, float32(int(g.pos.X)*scale), float32(int(g.pos.Y)*scale), float32(scale), float32(scale), 1, color.White, false)
+	}
 
 	return img
 }

@@ -1,9 +1,11 @@
 package main
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -15,7 +17,8 @@ const texSize = 64
 
 // Game holds the state.
 type Game struct {
-	world [][]MapPoint
+	mapName string
+	world   [][]MapPoint
 
 	width, height int
 
@@ -27,13 +30,31 @@ type Game struct {
 
 	last time.Time // Time when last frame was rendered. Used to scale movements.
 
-	mapMod   int // -1: hidden, 0: minimap, 1: fullmap.
-	showRays bool
+	mapMod        int // -1: hidden, 0: minimap, 1: fullmap.
+	showRays      bool
+	showHighlight bool // Highlight the player's square.
 
 	// Preloaded/cache data.
 	textures, sideTextures           *image.RGBA
 	texturesCache, sideTexturesCache [texSize][texSize * 8][3]byte
 	triangleImg                      *ebiten.Image
+}
+
+func (g *Game) loadMap(name string) error {
+	buf, err := mapData.ReadFile(name)
+	if err != nil {
+		return fmt.Errorf("readFile %q: %w", name, err)
+	}
+
+	world, err := parseMap(buf)
+	if err != nil {
+		return fmt.Errorf("parseMap: %w", err)
+	}
+	g.mapName = strings.TrimPrefix(name, "maps/")
+	g.world = world
+	g.pos = math2.Pt(float64(len(world[0])/2), float64(len(world))/2)
+
+	return nil
 }
 
 // Implements the DDA algoright (Digital Differential Analysis).
@@ -172,6 +193,9 @@ func (g *Game) drawBackground(img *image.RGBA, dda *DDA, x int, wallX float64, d
 }
 
 func (g *Game) getTexNum(x, y int) int {
+	if g.world[y][x].wallType > 7 {
+		return 7
+	}
 	return g.world[y][x].wallType
 }
 

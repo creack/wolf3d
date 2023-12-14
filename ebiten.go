@@ -37,7 +37,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		img.DrawImage(minimapImg, opMinimap)
 	}
 
-	ebitenutil.DebugPrint(img, fmt.Sprintf("TPS: %0.2f, FPS: %0.2f\nResolution: %dx%d", ebiten.ActualTPS(), ebiten.ActualFPS(), g.width, g.height))
+	ebitenutil.DebugPrint(img, fmt.Sprintf("TPS: %0.2f, FPS: %0.2f\nResolution: %dx%d\nMap: %s\n", ebiten.ActualTPS(), ebiten.ActualFPS(), g.width, g.height, g.mapName))
 
 	op := &ebiten.DrawImageOptions{}
 	screen.DrawImage(img, op)
@@ -57,6 +57,9 @@ func (g *Game) Update() error {
 	if inpututil.IsKeyJustPressed(ebiten.KeyR) {
 		g.showRays = !g.showRays
 	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyH) {
+		g.showHighlight = !g.showHighlight
+	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyM) {
 		switch g.mapMod {
 		case -1:
@@ -65,6 +68,22 @@ func (g *Game) Update() error {
 			g.mapMod = 1
 		case 1:
 			g.mapMod = -1
+		}
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyC) {
+		entries, err := mapData.ReadDir("maps")
+		if err != nil {
+			return fmt.Errorf("readDir: %w", err)
+		}
+		i := -1
+		for ii, elem := range entries {
+			if elem.Name() == g.mapName {
+				i = ii
+				break
+			}
+		}
+		if err := g.loadMap("maps/" + entries[(i+1)%len(entries)].Name()); err != nil {
+			return fmt.Errorf("loadMap: %w", err)
 		}
 	}
 

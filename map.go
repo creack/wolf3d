@@ -32,14 +32,14 @@ func parseMap(mapData []byte) ([][]MapPoint, error) {
 	for y, line := range grid {
 		var points []MapPoint
 		for x, elem := range line {
-			h, err := strconv.Atoi(elem)
+			h, err := strconv.ParseUint(elem, 16, 64)
 			if err != nil {
 				return nil, fmt.Errorf("invalid height %q for %d/%d: %w", elem, y, x, err)
 			}
 
 			p := MapPoint{
 				Point:    math2.Pt(x, y),
-				wallType: h,
+				wallType: int(h),
 			}
 
 			points = append(points, p)
