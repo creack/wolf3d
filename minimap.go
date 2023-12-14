@@ -26,6 +26,8 @@ func (g *Game) minimap(width, height int) image.Image {
 	width, height = worldWidth*scale, worldHeight*scale
 
 	var hits [100][100][2]*DDA
+	var hits2 [100][100][]*DDA
+
 	shadowImage := ebiten.NewImage(width, height)
 	shadowImage.Fill(color.Black)
 	var img draw.Image = image.NewRGBA(image.Rect(0, 0, width, height))
@@ -42,6 +44,8 @@ func (g *Game) minimap(width, height int) image.Image {
 		// to the nearest wall as well as if we touch it from the X or Y side.
 		dda := newDDA(cameraX, g.pos, g.dir, g.plane)
 		dda.run(g.world, g.pos)
+
+		hits2[dda.worldPt.X][dda.worldPt.Y] = append(hits2[dda.worldPt.X][dda.worldPt.Y], dda)
 
 		h := hits[dda.worldPt.X][dda.worldPt.Y]
 		if h[0] == nil {
@@ -64,10 +68,11 @@ func (g *Game) minimap(width, height int) image.Image {
 	rays := make([]*DDA, 0, len(hits)*2)
 	for y := 0; y < worldHeight; y++ {
 		for x := 0; x < worldWidth; x++ {
-			elem := hits[x][y]
-			if elem[0] != nil {
-				rays = append(rays, elem[0], elem[1])
+			elem := hits2[x][y]
+			if len(elem) == 0 {
+				continue
 			}
+			rays = append(rays, elem...)
 		}
 	}
 
@@ -91,7 +96,7 @@ func (g *Game) minimap(width, height int) image.Image {
 		line := getLine(dda)
 		nextLine := getLine(next)
 
-		if g.showRays {
+		if i%20 == 0 && g.showRays {
 			c := color.RGBA{A: 255, G: 255}
 			img1, _ := img.(*ebiten.Image)
 			vector.StrokeLine(img1, float32(spos.X), float32(spos.Y), float32(line.X), float32(line.Y), 1, c, true)
