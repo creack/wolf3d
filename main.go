@@ -53,8 +53,6 @@ func main() {
 	g := &Game{
 		width:  1280,
 		height: 720,
-		// width:  3840,
-		// height: 2160,
 
 		textures:     textures,
 		sideTextures: sideTextures,
