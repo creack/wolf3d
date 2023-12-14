@@ -16,6 +16,6 @@ github.com/kballard/go-shellquote
 # github.com/ogier/pflag v0.0.1
 ## explicit
 github.com/ogier/pflag
-# golang.org/x/sys v0.0.0-20180909124046-d0be0721c37e
-## explicit
+# golang.org/x/sys v0.1.0
+## explicit; go 1.17
 golang.org/x/sys/unix
