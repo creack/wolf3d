@@ -4,21 +4,21 @@ FROM golang:${GO_VERSION}
 ENV CGO_ENABLED=0 GOFLAGS='-mod=vendor'
 
 # Precompile stdlib for js/wasm and native os/arch.
-RUN go build -a std
-RUN GOOS=js GOARCH=wasm go build -a std
-
-WORKDIR /app
+RUN go build -a std && \
+    GOOS=js GOARCH=wasm go build -a std
 
 # Tell git our directory is safe.
 RUN git config --global --add safe.directory /app
 
-# Add the vendor directory.
-ADD go.mod go.sum ./
-ADD vendor/ vendor/
+WORKDIR /app
+
+# Add the vendored tools directory.
+ADD _tools/ _tools/
 
 # Install reflex and wasmserve.
-RUN go install ./vendor/github.com/cespare/reflex
-RUN go install ./vendor/github.com/hajimehoshi/wasmserve
+RUN cd _tools && \
+    go install ./vendor/github.com/cespare/reflex && \
+    go install ./vendor/github.com/hajimehoshi/wasmserve
 
 # Add the rest of the code.
 ADD . .
