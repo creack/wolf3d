@@ -25,9 +25,10 @@ type DDA struct {
 	realWallDist float64
 }
 
-func newDDA(cameraX float64, pos, dir, plane math2.Point, worldPt image.Point) *DDA {
+func newDDA(cameraX float64, pos, dir, plane math2.Point) *DDA {
 	dda := &DDA{
-		worldPt: worldPt,
+		// The player position is a float, cast down to int to get the actual world case.
+		worldPt: image.Pt(int(pos.X), int(pos.Y)),
 		// The direction of the ray is the sum of
 		//   - the direction vector of the camera
 		//   - a part of the plane vector of the camera (plane scaled to cameraX).

@@ -30,9 +30,11 @@ type Game struct {
 
 	last time.Time // Time when last frame was rendered. Used to scale movements.
 
-	mapMod        int // -1: hidden, 0: minimap, 1: fullmap.
-	showRays      bool
-	showHighlight bool // Highlight the player's square.
+	mapMod             int // -1: hidden, 0: minimap, 1: fullmap.
+	showRays           bool
+	showHighlight      bool // Highlight the player's square.
+	showMinimapGrid    bool
+	hideInvisibleWalls bool
 
 	// Preloaded/cache data.
 	textures, sideTextures           *image.RGBA
@@ -51,8 +53,10 @@ func (g *Game) loadMap(name string) error {
 		return fmt.Errorf("parseMap: %w", err)
 	}
 	g.mapName = strings.TrimPrefix(name, "maps/")
-	g.world = world
 	g.pos = math2.Pt(float64(len(world[0])/2), float64(len(world))/2)
+	g.dir = math2.Pt(1, 0)
+	g.plane = math2.Pt(0, 0.66)
+	g.world = world
 
 	return nil
 }
@@ -74,12 +78,9 @@ func (g *Game) frame() image.Image {
 		//   - leftmost  side gets coordinate -1
 		cameraX := 2*float64(x)/float64(g.width) - 1 // X-coordinate in camera space.
 
-		// The player position is a float, cast down to int to get the actual world case.
-		worldPt := image.Pt(int(g.pos.X), int(g.pos.Y))
-
 		// Run the DDA algo to cast a ray and get the distance
 		// to the nearest wall as well as if we touch it from the X or Y side.
-		dda := newDDA(cameraX, g.pos, g.dir, g.plane, worldPt)
+		dda := newDDA(cameraX, g.pos, g.dir, g.plane)
 		dda.run(g.world, g.pos)
 
 		// Calculate height of line to draw on screen.

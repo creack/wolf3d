@@ -34,36 +34,20 @@ func (g *Game) minimap(width, height int) image.Image {
 	// Player position.
 	spos := g.pos.Scale(float64(scale))
 
-	// DDA for each visible world case.
-	// hits := map[string][2]*DDA{}
-
 	// Go over each point along the X axis and cast a ray between the play and that point.
 	for x := 0; x < g.width; x++ {
-		// cameraX is the x-coordinate on the camera plane that
-		// the current x-coordinate of the screen represents.
-		// Done this way so that:
-		//   - rightmost side gets coordinate 1
-		//   - center         gets coordinate 0
-		//   - leftmost  side gets coordinate -1
 		cameraX := 2*float64(x)/float64(g.width) - 1 // X-coordinate in camera space.
-
-		// The player position is a float, cast down to int to get the actual world case.
-		worldPt := image.Pt(int(g.pos.X), int(g.pos.Y))
 
 		// Run the DDA algo to cast a ray and get the distance
 		// to the nearest wall as well as if we touch it from the X or Y side.
-		dda := newDDA(cameraX, g.pos, g.dir, g.plane, worldPt)
+		dda := newDDA(cameraX, g.pos, g.dir, g.plane)
 		dda.run(g.world, g.pos)
 
-		// strIdx := fmt.Sprintf("%d,%d", dda.worldPt.X, dda.worldPt.Y)
-		// h, ok := hits[strIdx]
-		// if !ok {
 		h := hits[dda.worldPt.X][dda.worldPt.Y]
 		if h[0] == nil {
 			h[0] = dda
 			h[1] = dda
 			hits[dda.worldPt.X][dda.worldPt.Y] = h
-			// hits[strIdx] = h
 		}
 		if dda.realWallDist < h[0].realWallDist {
 			h[0] = dda
@@ -152,18 +136,17 @@ func (g *Game) drawMinimapWalls(i draw.Image, scale int, hits [100][100][2]*DDA)
 
 	for y := 0; y < worldHeight; y++ {
 		for x := 0; x < worldWidth; x++ {
-			// if g.showMinimapGrid {
-			//   vector.StrokeRect(img, float32(x*scale), float32(y*scale), float32(scale), float32(scale), 1, color.White, false)
+			if g.showMinimapGrid {
+				vector.StrokeRect(img, float32(x*scale), float32(y*scale), float32(scale), float32(scale), 1, color.White, false)
+			}
 			c := g.getColor(x, y)
 			if c == color.Black {
 				continue
 			}
+			if g.hideInvisibleWalls && hits[x][y][0] == nil {
+				continue
+			}
 
-			// strIdx := fmt.Sprintf("%d,%d", x, y)
-			// if _, ok := hits[strIdx]; !ok {
-			// if hits[x][y][0] == nil {
-			// 	continue
-			// }
 			vector.DrawFilledRect(img, float32(x*scale), float32(y*scale), float32(scale), float32(scale), c, false)
 		}
 	}

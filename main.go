@@ -70,28 +70,21 @@ func main() {
 	if err := g.loadMap("maps/map4"); err != nil {
 		log.Fatal(err)
 	}
-	// g.texturesCache = make([][][3]byte, g.height)
 	for y := range g.texturesCache {
-		// g.texturesCache[y] = make([][3]byte, g.width)
 		for x := range g.texturesCache[y] {
-			// g.texturesCache[x][y] = make([]byte, 3)
 			r1, g1, b1, _ := g.textures.At(x, y).RGBA()
 			g.texturesCache[y][x][0] = byte(r1)
 			g.texturesCache[y][x][1] = byte(g1)
 			g.texturesCache[y][x][2] = byte(b1)
-			// g.texturesCache[y][x] = g.textures.At(x, y)
 		}
 	}
-	// g.sideTexturesCache = make([][][3]byte, g.height)
+
 	for y := range g.sideTexturesCache {
-		// g.sideTexturesCache[y] = make([][3]byte, g.width)
 		for x := range g.sideTexturesCache[y] {
-			// g.sideTexturesCache[x][y] = make([]byte, 3)
 			r1, g1, b1, _ := g.sideTextures.At(x, y).RGBA()
 			g.sideTexturesCache[y][x][0] = byte(r1)
 			g.sideTexturesCache[y][x][1] = byte(g1)
 			g.sideTexturesCache[y][x][2] = byte(b1)
-			// g.sideTexturesCache[y][x] = g.sideTextures.At(x, y)
 		}
 	}
 	g.triangleImg = ebiten.NewImage(g.width, g.height)

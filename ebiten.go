@@ -19,12 +19,10 @@ func (g Game) Layout(_, _ int) (w, h int) {
 // Draw implements ebiten.
 func (g *Game) Draw(screen *ebiten.Image) {
 	screen.Fill(color.Black)
-	// img := ebiten.NewImage(screen.Bounds().Dx(), screen.Bounds().Dy())
 	img := ebiten.NewImageFromImage(g.frame())
-	// img.Clear()
 
 	if g.mapMod != -1 {
-		scale := 0.6
+		scale := 0.2
 		if g.mapMod == 1 {
 			scale = 1.0
 		}
@@ -32,12 +30,25 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		minimapImg := ebiten.NewImageFromImage(g.minimap(int(float64(img.Bounds().Dx())*scale), int(float64(img.Bounds().Dy())*scale)))
 
 		opMinimap := &ebiten.DrawImageOptions{}
-		// opMinimap.GeoM.Scale(scale, scale)
 		opMinimap.GeoM.Translate(float64(g.width)-float64(minimapImg.Bounds().Dx()), 0)
 		img.DrawImage(minimapImg, opMinimap)
 	}
 
-	ebitenutil.DebugPrint(img, fmt.Sprintf("TPS: %0.2f, FPS: %0.2f\nResolution: %dx%d\nMap: %s\n", ebiten.ActualTPS(), ebiten.ActualFPS(), g.width, g.height, g.mapName))
+	ebitenutil.DebugPrint(img, fmt.Sprintf(`TPS: %0.2f, FPS: %0.2f
+Resolution: %dx%d
+Map: %s
+
+Controls:
+  A/D: strafe
+  W/S: move
+  Left/Right: turn
+  M: Cycle minimap mode
+  C: Cycle maps
+  H: Toggle player highlight
+  R: Toggle rays
+  G: Toggle grid
+  I: Toggle wall visibility
+`, ebiten.ActualTPS(), ebiten.ActualFPS(), g.width, g.height, g.mapName))
 
 	op := &ebiten.DrawImageOptions{}
 	screen.DrawImage(img, op)
@@ -54,6 +65,12 @@ func (g *Game) Update() error {
 	dt := time.Since(g.last).Seconds()
 	g.last = time.Now()
 
+	if inpututil.IsKeyJustPressed(ebiten.KeyG) {
+		g.showMinimapGrid = !g.showMinimapGrid
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyI) {
+		g.hideInvisibleWalls = !g.hideInvisibleWalls
+	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyR) {
 		g.showRays = !g.showRays
 	}
